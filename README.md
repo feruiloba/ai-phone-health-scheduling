@@ -1,20 +1,16 @@
-<a href="https://livekit.io/">
-  <img src="./.github/assets/livekit-mark.png" alt="LiveKit logo" width="100" height="100">
-</a>
-
-# Python Voice Agent
+# Assort Health Programming Assignment
 
 <p>
-  <a href="https://cloud.livekit.io/projects/p_/sandbox"><strong>Deploy a sandbox app</strong></a>
-  •
   <a href="https://docs.livekit.io/agents/overview/">LiveKit Agents Docs</a>
-  •
   <a href="https://livekit.io/cloud">LiveKit Cloud</a>
-  •
-  <a href="https://blog.livekit.io/">Blog</a>
 </p>
 
-A basic example of a voice agent using LiveKit and Python.
+This is an assignment created for an Assort Health interview. It is a basic example of a voice agent using LiveKit and Python.
+
+Please hire me.
+
+Best,
+Fernando
 
 ## Dev Setup
 
