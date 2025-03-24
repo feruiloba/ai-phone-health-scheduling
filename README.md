@@ -63,3 +63,15 @@ Run the tests:
 ```console
 python scheduling_test.py
 ```
+
+Heroku deployment:
+```
+git push heroku main
+heroku ps:scale worker=1
+heroku logs --tail
+```
+
+Set heroku configs:
+```
+heroku config:set SENDGRID_RECIPIENT_EMAILS="feruiloba@gmail.com,fruiloba@andrew.cmu.edu"
+```

@@ -6,9 +6,7 @@ from sendgrid.helpers.mail import Mail
 
 class Mailer:
     def __init__(self):
-        environment_file_path = os.getenv('ENV_FILE_PATH')
-        if (environment_file_path != None):
-            load_dotenv(environment_file_path)
+        load_dotenv(dotenv_path=".env.local")
         
         sendgrid_api_key = os.getenv('SENDGRID_API_KEY')
         if (sendgrid_api_key == None):
@@ -29,7 +27,7 @@ class Mailer:
             self.to_emails  = to_emails.split(",")
 
     def send_email(self, subject: str, content: str, logger: Logger):
-        logger.info(f"Sending email to {self.to_email} with subject {subject}")
+        logger.info(f"Sending email to {self.to_emails} with subject {subject}")
 
         mail = Mail(self.from_email, self.to_emails, subject, content)
 
@@ -38,4 +36,8 @@ class Mailer:
 
         # Send an HTTP POST request to /mail/send
         response = self.sg.client.mail.send.post(request_body=mail_json)
-        logger.info("Email sent", response.status_code, response.headers)
+
+        if (response.status_code < 300):
+            logger.info(f"Email sent. Status code: {str(response.status_code)}")
+        else:
+            logger.error(f"Failed to send email. Status code: {str(response.status_code)}")

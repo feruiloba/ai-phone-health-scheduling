@@ -1,1 +1,1 @@
-worker: python agent.py
+worker: sh -c 'python agent.py download-files && python agent.py dev'
