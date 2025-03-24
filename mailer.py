@@ -27,7 +27,7 @@ class Mailer:
             self.to_emails  = to_emails.split(",")
 
     def send_email(self, subject: str, content: str, logger: Logger):
-        logger.info(f"Sending email to {self.to_email} with subject {subject}")
+        logger.info(f"Sending email to {self.to_emails} with subject {subject}")
 
         mail = Mail(self.from_email, self.to_emails, subject, content)
 
@@ -38,6 +38,6 @@ class Mailer:
         response = self.sg.client.mail.send.post(request_body=mail_json)
 
         if (response.status_code < 300):
-            logger.info("Email sent", response.status_code, response.headers)
+            logger.info(f"Email sent. Status code: {str(response.status_code)}")
         else:
-            logger.error("Failed to send email", response.status_code, response.headers)
+            logger.error(f"Failed to send email. Status code: {str(response.status_code)}")

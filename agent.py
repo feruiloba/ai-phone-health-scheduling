@@ -35,15 +35,6 @@ physicians = [
     Physician(4, "Dr. Paul"),
     Physician(5, "Dr. Sanchez")
 ]
-timeslots = [
-    TimeSlot(datetime(2025, 3, 25, 10, 0)),
-    TimeSlot(datetime(2025, 3, 25, 11, 0)),
-    TimeSlot(datetime(2025, 3, 25, 12, 0)),
-    TimeSlot(datetime(2025, 3, 25, 13, 0)),
-    TimeSlot(datetime(2025, 3, 25, 14, 0)),
-    TimeSlot(datetime(2025, 3, 25, 15, 0)),
-]
-
 mailer = Mailer()
 
 load_dotenv(dotenv_path=".env.local")
@@ -89,7 +80,7 @@ class AssistantFnc(llm.FunctionContext):
             phone: Annotated[str, llm.TypeInfo(description="The patient's phone number")],
             email: Annotated[str, llm.TypeInfo(description="The patient's email")],
             medical_complaint: Annotated[str, llm.TypeInfo(description="The patient's chief medical complaint or reason that they're coming in")]):
-        """Called when the patient provides their information."""
+        """Used to collect patient information. It returns a message if the patient was successfully recorded."""
         
         self.patient.name = name
         self.patient.dob = dob
@@ -99,13 +90,15 @@ class AssistantFnc(llm.FunctionContext):
         self.patient.payer_name = payer_name
         self.patient.payer_id = payer_id
         self.patient.medical_complaint = medical_complaint
-        self.logger.info("Patient information successfully recorded")
+        message = "Patient information was successfully recorded"
+        self.logger.info(message)
+        return message
 
     @llm.ai_callable()
     async def set_physician_info(self,
             has_referral: Annotated[bool, llm.TypeInfo(description="Whether the patient has a referral")],
             physician_name: Annotated[str, llm.TypeInfo(description="The physician that the patient wants to see")]):
-        """Called when the patient provides physician information. It returns a warning if the physician is not in the system and a message if the physician was succesfully recorded."""
+        """Used to collect physician information. It returns a warning if the physician is not in the system and a message if the physician was succesfully recorded."""
         
         physician = get_physician(physician_name)
         
@@ -119,6 +112,11 @@ class AssistantFnc(llm.FunctionContext):
         message = "Physician information was succesfully recorded."
         logger.info(message)
         return message
+    
+    @llm.ai_callable()
+    async def get_physician_list(self):
+        """Used to get a list of physicians."""
+        return get_physician_names()
 
     @llm.ai_callable()
     async def set_date_time_info(
@@ -127,7 +125,7 @@ class AssistantFnc(llm.FunctionContext):
         month: Annotated[int, llm.TypeInfo(description="The desired month for the appointment")],
         hour: Annotated[int, llm.TypeInfo(description="The desired hour for the appointment")],
         minute: Annotated[int, llm.TypeInfo(description="The desired minute for the appointment")]):
-        """Called when the patient has decided on a date and time. Returns a warning if no physician has been chosen or if the date and time are not available. Returns a success message if date is successfully recorded."""
+        """Used to collect a date and time. Returns a warning if no physician has been chosen or if the date and time are not available. Returns a success message if date is successfully recorded."""
         
         if (self.physician == None):
             message = f"Physician name has not been provided. Available physicians are: {get_physician_names()}"
@@ -151,7 +149,7 @@ class AssistantFnc(llm.FunctionContext):
 
     @llm.ai_callable()
     async def create_appointment(self):
-        """Called after the patient has confirmed they want to make an appointment. Returns a warning if any information is missing and a successful message if the appointment was recorded."""
+        """Used to create an appointment. Returns a warning if any information is missing and a successful message if the appointment was recorded."""
 
         if (self.patient.name == None):
             message = "Missing patient name. Cannot schedule appointment"
@@ -193,7 +191,7 @@ class AssistantFnc(llm.FunctionContext):
             self.logger.info(message)
             return message
         
-        if (scheduler.is_available(self.physician, self.timeslot)):
+        if (not scheduler.is_available(self.physician, self.timeslot)):
             appointment_date = datetime(datetime.now().year, self.timeslot.start_time.month, self.timeslot.start_time.day)
             available_timeslots = ", ".join(scheduler.get_available_time_slots(self.physician, appointment_date))
             message = f"Time slot for day {self.timeslot.start_time.day}, month {self.timeslot.start_time.month}, hour {self.timeslot.start_time.hour}, minute {self.timeslot.start_time.minute} is not available for physician {self.physician.name}. Time slots available are: {available_timeslots}"
@@ -202,7 +200,20 @@ class AssistantFnc(llm.FunctionContext):
 
         scheduler.schedule_appointment(self.patient, self.physician, self.timeslot)
         message = "The appointment was successfully recorded!"
-        mailer.send_email(message, f"Appointment confirmed. \n Physician: {self.physician.name} \n Patient: {self.patient.name} \n Time slot: {self.timeslot}")
+        content = f"""Appointment confirmed.
+        Physician: {self.physician.name}
+        Is referral: {self.physician.is_referral}
+        Time slot: {str(self.timeslot)}
+        Patient name: {self.patient.name}
+        Date of birth: {self.patient.dob}
+        Phone: {self.patient.phone}
+        Email: {self.patient.email}
+        Address: {self.patient.address}
+        Medical complaint: {self.patient.medical_complaint}
+        Payer id: {self.patient.payer_id}
+        Payer name: {self.patient.payer_name}
+        """
+        mailer.send_email(message, content, self.logger)
         self.logger.info(message)
         return message
         
@@ -236,13 +247,12 @@ async def entrypoint(ctx: JobContext):
             "Collect patient's chief medical complaint or reason they are coming in."
             "Collect patient's address."
             "Collect patient's phone number and optionally email."
-            "You need to collect information about the physician that the patient wants to see. The physician must be in the system."
+            "Collect information about the physician that the patient wants to see. The physician must be in the system."
             "Ask the patient if they have a referral. If they do, collect the name of the physician for which they had a referral."
             "If the patient doesn't have a referral, collect patient's preferred physician."
             "Collect patient's preferred date and time for scheduling an appointment."
-            "Ensure that their preferred date and time is available."
-            "Before creating the appointment, confirm all the information they provided."
-            "After the appointment is scheduled, end the call."
+            "Create the appointment after you have collected patient, physician, date and time information."
+            "End the call after creating the appointment."
         ),
     )
 
