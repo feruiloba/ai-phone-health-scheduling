@@ -1,14 +1,14 @@
 from datetime import datetime, timedelta
 
 class Patient:
-    def __init__(self, patient_id, name=None, address=None, dob=None, payer_name=None, payer_id=None, has_referral=None, medical_complaint=None, phone=None, email=None):
+    def __init__(self, patient_id, name=None, address=None, dob=None, payer_name=None, payer_id=None, medical_complaint=None, phone=None, email=None):
         self.patient_id = patient_id
         self.name = name
         self.address=address
         self.dob=dob
         self.payer_name=payer_name
         self.payer_id=payer_id
-        self.has_referral=has_referral
+        
         self.medical_complaint=medical_complaint
         self.phone=phone
         self.email=email
@@ -17,7 +17,8 @@ class Patient:
         return f"Patient({self.patient_id}, {self.name})"
 
 class Physician:
-    def __init__(self, physician_id, name):
+    def __init__(self, physician_id, name, is_referral=None,):
+        self.is_referral=is_referral
         self.physician_id = physician_id
         self.name = name
     
@@ -25,12 +26,12 @@ class Physician:
         return f"Physician({self.physician_id}, {self.name})"
 
 class TimeSlot:
-    def __init__(self, start_time, duration=30):
+    def __init__(self, start_time, duration=60):
         self.start_time = start_time
         self.end_time = start_time + timedelta(minutes=duration)
     
     def __repr__(self):
-        return f"Start: {self.start_time} - End: {self.end_time}, "
+        return f"Start: {self.start_time} - End: {self.end_time}"
 
 class Appointment:
     def __init__(self, patient, physician, time_slot):
@@ -70,7 +71,7 @@ class Scheduler:
         while current_time + timedelta(minutes=duration) <= end_time:
             time_slot = TimeSlot(current_time, duration)
             if self.is_available(physician, time_slot):
-                available_slots.append(time_slot)
+                available_slots.append(str(time_slot))
             current_time += timedelta(minutes=duration)
         
         return available_slots

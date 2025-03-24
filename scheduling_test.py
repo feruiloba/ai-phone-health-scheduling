@@ -43,5 +43,16 @@ class TestScheduler(unittest.TestCase):
         available_slots_after = self.scheduler.get_available_time_slots(self.physician, self.date)
         self.assertNotIn(time_slot, available_slots_after)  # 10:00 AM slot should be gone
 
+    def test_is_available(self):
+        """Test the is available function"""
+        # Schedule an appointment at 11:00 AM
+        time_slot = TimeSlot(datetime(2025, 3, 25, 11, 0))
+        self.scheduler.schedule_appointment(self.patient, self.physician, time_slot)
+
+        # Should not be available
+        self.assertFalse(self.scheduler.is_available(self.physician, time_slot))
+
+
+
 if __name__ == '__main__':
     unittest.main()

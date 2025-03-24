@@ -80,152 +80,108 @@ class AssistantFnc(llm.FunctionContext):
         self.logger = logger
 
     @llm.ai_callable()
-    async def set_name(self, name: Annotated[str, llm.TypeInfo(description="The patient's name")]):
-        """Called when the patient provides their name."""
+    async def set_patient_info(self,
+            name: Annotated[str, llm.TypeInfo(description="The patient's name")],
+            dob: Annotated[str, llm.TypeInfo(description="The patient's date of birth")],
+            payer_name: Annotated[str, llm.TypeInfo(description="The patient's insurance payer name")],
+            payer_id: Annotated[str, llm.TypeInfo(description="The patient's insurance payer id")],
+            address: Annotated[str, llm.TypeInfo(description="The patient's address")],
+            phone: Annotated[str, llm.TypeInfo(description="The patient's phone number")],
+            email: Annotated[str, llm.TypeInfo(description="The patient's email")],
+            medical_complaint: Annotated[str, llm.TypeInfo(description="The patient's chief medical complaint or reason that they're coming in")]):
+        """Called when the patient provides their information."""
+        
         self.patient.name = name
-
-    @llm.ai_callable()
-    async def set_dob(self, dob: Annotated[str, llm.TypeInfo(description="The patient's date of birth")]):
-        """Called when the patient provides their date of birth."""
         self.patient.dob = dob
-
-    @llm.ai_callable()
-    async def set_payer_name(self, payer_name: Annotated[str, llm.TypeInfo(description="The patient's insurance payer name")]):
-        """Called when the patient provides their insurance payer name."""
+        self.patient.phone = phone
+        self.patient.email = email
+        self.patient.address = address
         self.patient.payer_name = payer_name
-
-    @llm.ai_callable()
-    async def set_payer_id(self, payer_id: Annotated[str, llm.TypeInfo(description="The patient's insurance payer id")]):
-        """Called when the patient provides their insurance payer id."""
         self.patient.payer_id = payer_id
+        self.patient.medical_complaint = medical_complaint
+        self.logger.info("Patient information successfully recorded")
 
     @llm.ai_callable()
-    async def set_referral(self, has_referral: Annotated[bool, llm.TypeInfo(description="Whether the patient has a referral")]):
-        """Called when the patient says whether they have a referral."""
-        self.patient.has_referral = has_referral
-
-    @llm.ai_callable()
-    async def set_physician(self, physician_name: Annotated[str, llm.TypeInfo(description="The physician that the patient wants to see")]):
-        """Called when the patient provides a physician name. It returns a warning if the physician is not in the system and a message if the physician was succesfully recorded."""
+    async def set_physician_info(self,
+            has_referral: Annotated[bool, llm.TypeInfo(description="Whether the patient has a referral")],
+            physician_name: Annotated[str, llm.TypeInfo(description="The physician that the patient wants to see")]):
+        """Called when the patient provides physician information. It returns a warning if the physician is not in the system and a message if the physician was succesfully recorded."""
+        
         physician = get_physician(physician_name)
         
-        if (physician != None):
-            self.physician = physician
-            message = "Physician was succesfully recorded."
-            logger.info(message)
-            return message
-        else:
+        if (physician == None):
             message = f"Incorrect physician name provided. Physician with name {physician_name} is not in the system."
             logger.info(message)
             return message
-    
-    @llm.ai_callable()
-    async def set_chief_medical_complaint(self, medical_complaint: Annotated[str, llm.TypeInfo(description="The patient's chief medical complaint or reason that they're coming in")]):
-        """Called when the patient provides their chief medical complaint or reason that they're coming in."""
-        self.patient.medical_complaint = medical_complaint
-
-    @llm.ai_callable()
-    async def set_address(self, address: Annotated[str, llm.TypeInfo(description="The patient's address")]):
-        """Called when the patient provides their address"""
-        self.patient.address = address
-
-    @llm.ai_callable()
-    async def set_phone_email(self, phone: Annotated[str, llm.TypeInfo(description="The patient's phone number")], email: Annotated[str, llm.TypeInfo(description="The patient's email")]):
-        """Called when the patient provides their phone number, and optionally, their email"""
-        self.patient.phone = phone
-        self.patient.email = email
-
-    @llm.ai_callable()
-    async def get_physicians(self):
-        """Called when the patient asks for the available physicians. It returns a list of physicians to choose from."""
         
-        return get_physician_names()
-
-    @llm.ai_callable()
-    async def get_physician_timeslots(self, day: Annotated[int, llm.TypeInfo(description="The desired day for the appointment")], month: Annotated[int, llm.TypeInfo(description="The desired month for the appointment")]):
-        """Used for getting all the available dates and times for a given physician. Returns a list of all the available time slots in the format "Start: yyyy-mm-dd hh:mm:ss - End: yyyy-mm-dd hh:mm:ss" separated by commas. It also returns a warning if the patient has not provided a preferred physician."""
-
-        if (self.physician == None):
-            message = "Physician name has not been provided"
-            logger.info(message)
-            return message
-        else:
-            appointment_date = datetime(datetime.now().year, month, day)
-            available_timeslots = ", ".join(scheduler.get_available_time_slots(self.physician, appointment_date))
-            logger.info("Providing available timeslots", available_timeslots)
-            return available_timeslots
-    
-
-    async def check_physician_availability(
-            self,
-            day: Annotated[int, llm.TypeInfo(description="The desired day for the appointment")],
-            month: Annotated[int, llm.TypeInfo(description="The desired month for the appointment")],
-            hour: Annotated[int, llm.TypeInfo(description="The desired hour for the appointment")],
-            minute: Annotated[int, llm.TypeInfo(description="The desired minute for the appointment")]):
-        """Used to check if a given date and time are available for a given physician. Returns a message confirming or rejecting the given date and times or a warning if the patient has not provided a preferred physician"""
-
-        if (self.physician == None):
-            message = "Physician name has not been provided"
-            logger.info(message)
-            return message
-        
-        appointment_date = datetime(datetime.now().year, month, day)
-        timeslot = TimeSlot(appointment_date)
-
-        if (scheduler.is_available(self.physician, timeslot)):
-            message = f"Time slot for day {day}, month {month}, hour {hour}, minute {minute} is available for physician {self.physician.name}"
-            logger.info(message)
-        else:
-            message = f"Time slot for day {day}, month {month}, hour {hour}, minute {minute} is not available for physician {self.physician.name}"
-            logger.info(message)
-
+        self.physician = physician
+        self.physician.is_referral = has_referral
+        message = "Physician information was succesfully recorded."
+        logger.info(message)
         return message
 
-    async def set_timeslot(
-            self,
-            day: Annotated[int, llm.TypeInfo(description="The desired day for the appointment")],
-            month: Annotated[int, llm.TypeInfo(description="The desired month for the appointment")],
-            hour: Annotated[int, llm.TypeInfo(description="The desired hour for the appointment")],
-            minute: Annotated[int, llm.TypeInfo(description="The desired minute for the appointment")]):
-        """Used for collecting the patient's preferred date and time for an appointment. Returns a success message if the date and time recorded correctly and warnings if the physician name has not been provided or if the date and time provided are unavailable."""
-        
-        if (self.physician == None):
-            message = "Physician name has not been provided"
-            logger.info(message)
-            return message
-        
-        appointment_date = datetime(datetime.now().year, month, day, hour, minute)
-        timeslot = TimeSlot(appointment_date)
-
-        if (scheduler.is_available(self.physician, timeslot)):
-            self.timeslot = timeslot
-            message = "Time slot was recorded correctly."
-            logger.info(message)
-            return message
-        else:
-            message = f"Time slot for day {day}, month {month}, hour {hour}, minute {minute} is not available for physician {self.physician.name}"
-            logger.info(message)
-            return message
-    
     @llm.ai_callable()
-    async def get_appointment_confirmation(self):
-        """Used to confirm the desired physician, date and time for the appointment. Returns a warning if any information is missing or a success message if everything looks good."""
-
+    async def set_date_time_info(
+        self,
+        day: Annotated[int, llm.TypeInfo(description="The desired day for the appointment")],
+        month: Annotated[int, llm.TypeInfo(description="The desired month for the appointment")],
+        hour: Annotated[int, llm.TypeInfo(description="The desired hour for the appointment")],
+        minute: Annotated[int, llm.TypeInfo(description="The desired minute for the appointment")]):
+        """Called when the patient has decided on a date and time. Returns a warning if no physician has been chosen or if the date and time are not available. Returns a success message if date is successfully recorded."""
+        
         if (self.physician == None):
-            message = "Physician name has not been provided"
+            message = f"Physician name has not been provided. Available physicians are: {get_physician_names()}"
             logger.info(message)
             return message
         
-        if (self.timeslot == None):
-            message = "Missing date and time data"
+        appointment_date_time = datetime(datetime.now().year, month, day, hour, minute)
+        timeslot = TimeSlot(appointment_date_time)
+
+        if (not scheduler.is_available(self.physician, timeslot)):
+            appointment_date = datetime(datetime.now().year, month, day)
+            available_timeslots = ", ".join(scheduler.get_available_time_slots(self.physician, appointment_date))
+            message = f"Time slot for day {day}, month {month}, hour {hour}, minute {minute} is not available for physician {self.physician.name}. Time slots available are: {available_timeslots}"
             logger.info(message)
             return message
-
-        return "Everything lookgs good. Physician and time slot data have been recorded."
+        
+        self.timeslot = timeslot
+        message = "Time slot information was successfully recorded."
+        logger.info(message)
+        return message
 
     @llm.ai_callable()
     async def create_appointment(self):
-        """Called after the patient has confirmed that he wants to make an appointment. Returns a warning if any information is missing and a successful message if the appointment was recorded."""
+        """Called after the patient has confirmed they want to make an appointment. Returns a warning if any information is missing and a successful message if the appointment was recorded."""
+
+        if (self.patient.name == None):
+            message = "Missing patient name. Cannot schedule appointment"
+            self.logger.info(message)
+            return message
+        
+        if (self.patient.dob == None):
+            message = "Missing patient date of birth. Cannot schedule appointment"
+            self.logger.info(message)
+            return message
+
+        if (self.patient.address == None):
+            message = "Missing patient address. Cannot schedule appointment"
+            self.logger.info(message)
+            return message
+
+        if (self.patient.phone == None):
+            message = "Missing patient phone. Cannot schedule appointment"
+            self.logger.info(message)
+            return message
+
+        if (self.patient.payer_name == None):
+            message = "Missing patient payer name. Cannot schedule appointment"
+            self.logger.info(message)
+            return message
+        
+        if (self.patient.payer_id == None):
+            message = "Missing patient payer ID. Cannot schedule appointment"
+            self.logger.info(message)
+            return message
 
         if (self.physician == None):
             message = "Physician name has not been provided. Cannot schedule appointment"
@@ -238,7 +194,9 @@ class AssistantFnc(llm.FunctionContext):
             return message
         
         if (scheduler.is_available(self.physician, self.timeslot)):
-            message = f"The time slot provided for {self.timeslot.start_time} is not available for physician {self.physician.name}"
+            appointment_date = datetime(datetime.now().year, self.timeslot.start_time.month, self.timeslot.start_time.day)
+            available_timeslots = ", ".join(scheduler.get_available_time_slots(self.physician, appointment_date))
+            message = f"Time slot for day {self.timeslot.start_time.day}, month {self.timeslot.start_time.month}, hour {self.timeslot.start_time.hour}, minute {self.timeslot.start_time.minute} is not available for physician {self.physician.name}. Time slots available are: {available_timeslots}"
             self.logger.info(message)
             return message
 
@@ -270,7 +228,7 @@ async def entrypoint(ctx: JobContext):
             "You are a voice assistant created by Assort Health. Your interface with users will be voice."
             "You should use short and concise responses, and avoiding usage of unpronouncable punctuation."
             "You work in a hospital. Your job is to answer calls from patients who want to schedule an appointment."
-            "You need to collect information from patients. It is essential to collect the entirety of the data for each patient."
+            "You need to collect information about the patient."
             "Collect patient's name."
             "Collect patient's date of birth."
             "Collect patient's insurance payer name."
@@ -278,12 +236,13 @@ async def entrypoint(ctx: JobContext):
             "Collect patient's chief medical complaint or reason they are coming in."
             "Collect patient's address."
             "Collect patient's phone number and optionally email."
-            "Ask patient if they have a referral. If they do, collect the name of the physician for which they had a referral."
+            "You need to collect information about the physician that the patient wants to see. The physician must be in the system."
+            "Ask the patient if they have a referral. If they do, collect the name of the physician for which they had a referral."
             "If the patient doesn't have a referral, collect patient's preferred physician."
-            "If the patient is struggling to choose a physician, provide the list of available physicians"
             "Collect patient's preferred date and time for scheduling an appointment."
-            "If a patient is struggling to choose a preferred date and time, provide a list of time slots available for the physician they chose."
-            "After the appointment is scheduled, end the call"
+            "Ensure that their preferred date and time is available."
+            "Before creating the appointment, confirm all the information they provided."
+            "After the appointment is scheduled, end the call."
         ),
     )
 
