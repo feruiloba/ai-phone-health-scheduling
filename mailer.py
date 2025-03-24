@@ -6,8 +6,9 @@ from sendgrid.helpers.mail import Mail
 
 class Mailer:
     def __init__(self):
-        environment_file_path = os.getenv('ENV_FILE_PATH') or ".env.local"
-        load_dotenv(environment_file_path)
+        environment_file_path = os.getenv('ENV_FILE_PATH')
+        if (environment_file_path != None):
+            load_dotenv(environment_file_path)
         
         sendgrid_api_key = os.getenv('SENDGRID_API_KEY')
         if (sendgrid_api_key == None):
