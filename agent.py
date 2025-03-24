@@ -24,6 +24,7 @@ from livekit.plugins import (
 )
 from livekit import api, rtc
 
+from mailer import Mailer
 from scheduling import ( Scheduler, Patient, Physician, TimeSlot )
 
 scheduler = Scheduler()
@@ -42,6 +43,8 @@ timeslots = [
     TimeSlot(datetime(2025, 3, 25, 14, 0)),
     TimeSlot(datetime(2025, 3, 25, 15, 0)),
 ]
+
+mailer = Mailer()
 
 load_dotenv(dotenv_path=".env.local")
 logger = logging.getLogger("voice-agent")
@@ -143,10 +146,12 @@ class AssistantFnc(llm.FunctionContext):
         """Used for getting all the available dates and times for a given physician. Returns a list of all the available time slots in the format "Start: yyyy-mm-dd hh:mm:ss - End: yyyy-mm-dd hh:mm:ss" separated by commas. It also returns a warning if the patient has not provided a preferred physician."""
 
         if (self.physician == None):
-            return "Physician name has not been provided"
+            message = "Physician name has not been provided"
+            logger.info(message)
+            return message
         else:
             appointment_date = datetime(datetime.now().year, month, day)
-            available_timeslots = scheduler.get_available_time_slots(self.physician, appointment_date)
+            available_timeslots = ", ".join(scheduler.get_available_time_slots(self.physician, appointment_date))
             logger.info("Providing available timeslots", available_timeslots)
             return available_timeslots
     
@@ -160,16 +165,21 @@ class AssistantFnc(llm.FunctionContext):
         """Used to check if a given date and time are available for a given physician. Returns a message confirming or rejecting the given date and times or a warning if the patient has not provided a preferred physician"""
 
         if (self.physician == None):
-            return "Physician name has not been provided"
+            message = "Physician name has not been provided"
+            logger.info(message)
+            return message
         
         appointment_date = datetime(datetime.now().year, month, day)
         timeslot = TimeSlot(appointment_date)
 
         if (scheduler.is_available(self.physician, timeslot)):
-            return f"Time slot for day {day}, month {month}, hour {hour}, minute {minute} is available for physician {self.physician.name}"
+            message = f"Time slot for day {day}, month {month}, hour {hour}, minute {minute} is available for physician {self.physician.name}"
+            logger.info(message)
         else:
-            return f"Time slot for day {day}, month {month}, hour {hour}, minute {minute} is not available for physician {self.physician.name}"
+            message = f"Time slot for day {day}, month {month}, hour {hour}, minute {minute} is not available for physician {self.physician.name}"
+            logger.info(message)
 
+        return message
 
     async def set_timeslot(
             self,
@@ -180,26 +190,36 @@ class AssistantFnc(llm.FunctionContext):
         """Used for collecting the patient's preferred date and time for an appointment. Returns a success message if the date and time recorded correctly and warnings if the physician name has not been provided or if the date and time provided are unavailable."""
         
         if (self.physician == None):
-            return "Physician name has not been provided"
+            message = "Physician name has not been provided"
+            logger.info(message)
+            return message
         
         appointment_date = datetime(datetime.now().year, month, day, hour, minute)
         timeslot = TimeSlot(appointment_date)
 
         if (scheduler.is_available(self.physician, timeslot)):
             self.timeslot = timeslot
-            return "Time slot was recorded correctly."
+            message = "Time slot was recorded correctly."
+            logger.info(message)
+            return message
         else:
-            return f"Time slot for day {day}, month {month}, hour {hour}, minute {minute} is not available for physician {self.physician.name}"
+            message = f"Time slot for day {day}, month {month}, hour {hour}, minute {minute} is not available for physician {self.physician.name}"
+            logger.info(message)
+            return message
     
     @llm.ai_callable()
     async def get_appointment_confirmation(self):
         """Used to confirm the desired physician, date and time for the appointment. Returns a warning if any information is missing or a success message if everything looks good."""
 
         if (self.physician == None):
-            return "Missing physician data"
+            message = "Physician name has not been provided"
+            logger.info(message)
+            return message
         
         if (self.timeslot == None):
-            return "Missing date and time data"
+            message = "Missing date and time data"
+            logger.info(message)
+            return message
 
         return "Everything lookgs good. Physician and time slot data have been recorded."
 
@@ -224,12 +244,13 @@ class AssistantFnc(llm.FunctionContext):
 
         scheduler.schedule_appointment(self.patient, self.physician, self.timeslot)
         message = "The appointment was successfully recorded!"
+        mailer.send_email(message, f"Appointment confirmed. \n Physician: {self.physician.name} \n Patient: {self.patient.name} \n Time slot: {self.timeslot}")
         self.logger.info(message)
         return message
         
     @llm.ai_callable()
     async def end_call(self):
-        """Used for ending the call if necessary"""
+        """Used for ending the call. Should only be called if the user wants to end the call or an appointment has been scheduled."""
         logger.info(f"ending the call for {self.participant.identity}")
         try:
             await self.api.room.remove_participant(
@@ -320,7 +341,8 @@ async def entrypoint(ctx: JobContext):
         # minimum delay for endpointing, used when turn detector believes the user is done with their turn
         min_endpointing_delay=0.5,
         # maximum delay for endpointing, used when turn detector does not believe the user is done with their turn
-        max_endpointing_delay=5.0,
+        max_endpointing_delay=2.0,
+        max_nested_fnc_calls=5,
         # enable background voice & noise cancellation, powered by Krisp
         # included at no additional cost with LiveKit Cloud
         noise_cancellation=noise_cancellation.BVC(),
