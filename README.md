@@ -1,16 +1,12 @@
-# Assort Health Programming Assignment
+# AI Phone Scheduling system for Healthcare
 
 <p>
   <a href="https://docs.livekit.io/agents/overview/">LiveKit Agents Docs</a>
   <a href="https://livekit.io/cloud">LiveKit Cloud</a>
 </p>
 
-This is an assignment created for an Assort Health interview. It is a basic example of a voice agent using LiveKit and Python.
+This is a basic example of a voice agent using LiveKit and Python.
 
-Please hire me.
-
-Best,
-Fernando
 
 ## Dev Setup
 
